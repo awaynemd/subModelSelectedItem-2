@@ -7,88 +7,88 @@ open Elmish.WPF
 
 module Cell =
     type Model =
-        { CellName: string
-          Id: Guid }
+        { Id: Guid
+          CellName: string }
 
-    let init j i =
-        { CellName = sprintf "CellName %i  %i" j i
-          Id = new Guid()
-        }
-
-    type Msg =
-        | Select of Guid option
+    let init i j =
+        { Id = Guid.NewGuid ()
+          CellName = sprintf "CellName %i  %i" i j }
 
     let bindings() = [
-        "CellName" |> Binding.oneWay( fun v -> v.CellName)
-       // "SelectedLabel" |> Binding.oneWay (fun (m, e) -> if m.Selected = Some e.Id then " - SELECTED" else "")
-        "SelectedLabel" |> Binding.oneWay (fun v -> " -- HI!")
+        "CellName" |> Binding.oneWay(fun (_, c) -> c.CellName)
+        "SelectedLabel" |> Binding.oneWay (fun (b, _) -> if b then " - Selected" else "")
      ]
 
 
-module Row =
+module OutterRow =
 
     type Model =
-      { RowName: string
-        Columns: Cell.Model list
-        Id: Guid }
+      { Id: Guid
+        OutterRowName: string
+        InnerRows: Cell.Model list
+        SelectedInnerRow: Guid option }
 
     type Msg =
          | Select of Guid option
-         | NoOp
 
     let init i =
-        { RowName = sprintf "RowName %i" i
-          Columns =  [0 .. 2] |> List.map (fun j -> Cell.init j i)
-          Id = new Guid()
-        }
+        { Id = Guid.NewGuid ()
+          OutterRowName = sprintf "RowName %i" i
+          InnerRows =  [0 .. 2] |> List.map (Cell.init i)
+          SelectedInnerRow = None }
 
-    let bindings() = [
-           "RowName" |> Binding.oneWay( fun v -> v.RowName)
-           "Columns" |> Binding.subModelSeq(
-               (fun m -> m.Columns),
+    let update msg m =
+      match msg with
+      | Select id -> { m with SelectedInnerRow = id }
+
+    let bindings() : Binding<bool * Model, Msg> list = [
+           "OutterRowName" |> Binding.oneWay(fun (b, p) -> p.OutterRowName + (if b then " - Selected" else ""))
+           "InnerRows" |> Binding.subModelSeq(
+               (fun (_, p) -> p.InnerRows),
+               (fun ((b, p), c) -> (b && p.SelectedInnerRow = Some c.Id, c)),
+               (fun (_, c) -> c.Id),
                snd,
-               (fun e -> e.Id),
-               (fun _ -> NoOp),
-               Cell.bindings ) 
-               
-        //   "SelectedEntity" |> Binding.subModelSelectedItem("Columns", (fun m -> m.Selected), Select)
+               Cell.bindings)
+           "SelectedInnerRow" |> Binding.subModelSelectedItem("InnerRows", (fun (_, r) -> r.SelectedInnerRow), (fun cId _ -> Select cId))
     ]
 
     
-module App =  
+module App =
 
    type Model =
-      { Rows: Row.Model list
-        Selected: Guid option }
+      { OutterRows: OutterRow.Model list
+        SelectedOutterRow: Guid option }
 
    let init () =
-     {  Rows = [0 .. 2] |> List.map (fun i -> Row.init i)
-        Selected = None}
+     {  OutterRows = [0 .. 2] |> List.map OutterRow.init
+        SelectedOutterRow = None }
 
    type Msg =
       | Select of Guid option
-      | NoOp
+      | RowMsg of Guid * OutterRow.Msg
 
    let update msg m =
       match msg with
-      | Select entityId -> { m with Selected = entityId }
-      | NoOp -> m
+      | Select rId -> { m with SelectedOutterRow = rId }
+      | RowMsg (rId, msg) ->
+          let rows =
+            m.OutterRows
+            |> List.map (fun r -> if r.Id = rId then OutterRow.update msg r else r)
+          { m with OutterRows = rows }
 
-   let bindings () : Binding<Model, Msg> list = [     
-        "Rows" |> Binding.subModelSeq(
-            (fun m -> m.Rows),
-            snd,
-            (fun e -> e.Id),
-            (fun _ -> NoOp),
-            Row.bindings )      
+   let bindings () = [
+        "OutterRows" |> Binding.subModelSeq(
+            (fun m -> m.OutterRows),
+            (fun (m, r) -> (m.SelectedOutterRow = Some r.Id, r)),
+            (fun (_, r) -> r.Id),
+            RowMsg,
+            OutterRow.bindings)
+        "SelectedOutterRow" |> Binding.subModelSelectedItem("OutterRows", (fun m -> m.SelectedOutterRow), Select)
    ]
 
    let main window =
       Program.mkSimpleWpf init update bindings
       |> Program.withConsoleTrace
       |> Program.runWindowWithConfig
-        { ElmConfig.Default with LogConsole = true; Measure = true }
+        { ElmConfig.Default with LogConsole = true; Measure = false }
         window
-
-
- 

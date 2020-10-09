@@ -13,15 +13,14 @@
     <Grid>
         <DataGrid Name = "dataGrid" AlternatingRowBackground = "LightBlue"  
          AlternationCount = "2" AutoGenerateColumns = "False"
-         ItemsSource="{Binding Rows}">
-
+         ItemsSource="{Binding OutterRows}" SelectedItem="{Binding SelectedOutterRow}">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Time" Binding="{Binding RowName}" />
+                <DataGridTextColumn Header="Time" Binding="{Binding OutterRowName}" />
                 
                 <DataGridTemplateColumn Header="0:00" Width="354" IsReadOnly="True">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <ListView ItemsSource="{Binding Columns}" SelectedItem="{Binding SelectedEntity}" HorizontalContentAlignment="Center">
+                            <ListView ItemsSource="{Binding InnerRows}" SelectedItem="{Binding SelectedInnerRow, UpdateSourceTrigger=PropertyChanged}" HorizontalContentAlignment="Center">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal">
